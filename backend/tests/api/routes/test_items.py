@@ -1,5 +1,6 @@
 import uuid
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
@@ -77,6 +78,30 @@ def test_read_items(
     assert response.status_code == 200
     content = response.json()
     assert len(content["data"]) >= 2
+
+
+@pytest.mark.parametrize(
+    ("params", "field"),
+    [
+        ({"skip": -1}, "skip"),
+        ({"limit": 0}, "limit"),
+        ({"limit": -1}, "limit"),
+        ({"limit": 101}, "limit"),
+    ],
+)
+def test_read_items_invalid_pagination(
+    client: TestClient,
+    superuser_token_headers: dict[str, str],
+    params: dict[str, int],
+    field: str,
+) -> None:
+    response = client.get(
+        f"{settings.API_V1_STR}/items/",
+        headers=superuser_token_headers,
+        params=params,
+    )
+    assert response.status_code == 422
+    assert any(error["loc"] == ["query", field] for error in response.json()["detail"])
 
 
 def test_update_item(
